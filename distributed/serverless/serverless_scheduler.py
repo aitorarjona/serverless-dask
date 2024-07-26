@@ -6,9 +6,10 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from distributed import Scheduler, Status, connect
+from distributed import Scheduler, Status
 from distributed.batched import BatchedSend
 from distributed.comm import Comm
+from distributed.comm.core import connect_with_retry
 from distributed.counter import Counter
 from distributed.scheduler import ClientState, WorkerState
 
@@ -104,9 +105,9 @@ class ServerlessScheduler(Scheduler):
 
     async def _spawn_worker_knative(self, worker_endpoint, address, name, nthreads, memory_limit):
         logger.debug("Spawn Knative worker %s", name)
-        # The timeout is divided by 5, we put a big value here to compensate
-        comm = await connect(worker_endpoint, timeout="3600s", connection_args={"connect_timeout": 0.0,
-                                                                                "request_timeout": 0.0})
+        comm = await connect_with_retry(worker_endpoint, timeout="2s", max_retry=100,
+                                        connection_args={"connect_timeout": 2.0,
+                                                         "request_timeout": 0.0})
         logger.debug("Comm to %s worker successful", name)
 
         await comm.write({"op": "start-worker",

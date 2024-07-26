@@ -167,7 +167,7 @@ class Comm(ABC):
 
     @staticmethod
     def handshake_configuration(
-        local: dict[str, Any], remote: dict[str, Any]
+            local: dict[str, Any], remote: dict[str, Any]
     ) -> dict[str, Any]:
         """Find a configuration that is suitable for both local and remote
 
@@ -259,7 +259,7 @@ class Listener(ABC):
         return _().__await__()
 
     async def on_connection(
-        self, comm: Comm, handshake_overrides: dict[str, Any] | None = None
+            self, comm: Comm, handshake_overrides: dict[str, Any] | None = None
     ) -> None:
         local_info = {**comm.handshake_info(), **(handshake_overrides or {})}
         await comm.write(local_info)
@@ -279,7 +279,7 @@ class BaseListener(Listener):
         self.__comms: set[Comm] = set()
 
     async def on_connection(
-        self, comm: Comm, handshake_overrides: dict[str, Any] | None = None
+            self, comm: Comm, handshake_overrides: dict[str, Any] | None = None
     ) -> None:
         self.__comms.add(comm)
         try:
@@ -305,7 +305,7 @@ class Connector(ABC):
 
 
 async def connect(
-    addr, timeout=None, deserialize=True, handshake_overrides=None, **connection_args
+        addr, timeout=None, deserialize=True, handshake_overrides=None, **connection_args
 ):
     """
     Connect to the given address (a URI such as ``tcp://127.0.0.1:1234``)
@@ -329,17 +329,17 @@ async def connect(
 
     backoff_base = 0.01
     attempt = 0
+    logger.debug("Establishing connection to %s", loc)
     # Prefer multiple small attempts than one long attempt. This should protect
     # primarily from DNS race conditions
     # gh3104, gh4176, gh4167
-    # intermediate_cap = timeout / 5
-    # active_exception = None
+    intermediate_cap = timeout / 5
+    active_exception = None
     while time_left() > 0:
-        logger.debug("Establishing connection to %s (timeout=%f)", loc, timeout)
         try:
             comm = await wait_for(
                 connector.connect(loc, deserialize=deserialize, **connection_args),
-                timeout=timeout,
+                timeout=min(intermediate_cap, time_left()),
             )
             break
         except FatalCommClosedError:
@@ -355,7 +355,7 @@ async def connect(
             intermediate_cap = timeout
             # FullJitter see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
 
-            upper_cap = min(time_left(), backoff_base * (2**attempt))
+            upper_cap = min(time_left(), backoff_base * (2 ** attempt))
             backoff = random.uniform(0, upper_cap)
             attempt += 1
             logger.debug(
@@ -373,6 +373,68 @@ async def connect(
     }
     await comm.write(local_info)
     handshake = await comm.read()
+
+    comm.remote_info = handshake
+    comm.remote_info["address"] = comm.peer_address
+    comm.local_info = local_info
+    comm.local_info["address"] = comm.local_address
+
+    comm.handshake_options = comm.handshake_configuration(
+        comm.local_info, comm.remote_info
+    )
+    logger.debug("Connection to %s established", loc)
+    return comm
+
+
+async def connect_with_retry(
+        addr, timeout=None, max_retry=50, retry_wait="0.2s", deserialize=True, handshake_overrides=None, **connection_args
+):
+    """
+    Connect to the given address (a URI such as ``tcp://127.0.0.1:1234``)
+    and yield a ``Comm`` object.  If the connection attempt fails, we wait for
+    a *timeout* and retry *retries* times.
+    """
+    if timeout is None:
+        timeout = dask.config.get("distributed.comm.timeouts.connect")
+    timeout = float(parse_timedelta(timeout, default="seconds"))
+    retry_wait = float(parse_timedelta(retry_wait, default="seconds"))
+
+    scheme, loc = parse_address(addr)
+    backend = registry.get_backend(scheme)
+    connector = backend.get_connector()
+    comm = None
+
+    start = time()
+    retries = 0
+    while retries < max_retry:
+        try:
+            logger.debug("Establishing connection to %s", loc)
+            comm = await wait_for(
+                connector.connect(loc, deserialize=deserialize, **connection_args),
+                timeout=timeout,
+            )
+            break
+        except FatalCommClosedError:
+            raise
+        # Note: CommClosed inherits from OSError
+        except (asyncio.TimeoutError, OSError) as exc:
+            active_exception = exc
+            logger.debug(
+                "Could not connect to %s, waiting for %s before retrying", loc, retry_wait
+            )
+            await asyncio.sleep(retry_wait)
+    else:
+        raise OSError(
+            f"Timed out trying to connect to {addr} after {retries} retries"
+        ) from active_exception
+
+    local_info = {
+        **comm.handshake_info(),
+        **(handshake_overrides or {}),
+    }
+    await comm.write(local_info)
+    handshake = await comm.read()
+
     comm.remote_info = handshake
     comm.remote_info["address"] = comm.peer_address
     comm.local_info = local_info
