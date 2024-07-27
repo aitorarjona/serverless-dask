@@ -1234,7 +1234,6 @@ class Client(SyncMethodMixin):
         if self.status in ("running", "closing"):
             try:
                 self.scheduler_comm.send(msg)
-                print("sent", msg)
             except (CommClosedError, AttributeError):
                 if self.status == "running":
                     raise
@@ -1707,7 +1706,6 @@ class Client(SyncMethodMixin):
             and self.scheduler_comm.comm
             and not self.scheduler_comm.comm.closed()
         ):
-            print("close-client")
             self._send_to_scheduler({"op": "close-client"})
             self._send_to_scheduler({"op": "close-stream"})
         async with self._wait_for_handle_report_task(fast=fast):
@@ -1716,9 +1714,7 @@ class Client(SyncMethodMixin):
                 and self.scheduler_comm.comm
                 and not self.scheduler_comm.comm.closed()
             ):
-                # await asyncio.sleep(5)
-                # await self.scheduler_comm.close()
-                pass
+                await self.scheduler_comm.close()
 
             for key in list(self.futures):
                 self._release_key(key=key)

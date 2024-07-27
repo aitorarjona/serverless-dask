@@ -493,5 +493,5 @@ class WSSBackend(BaseTCPBackend):
     _listener_class = WSSListener
 
 
-backends["ws"] = WSBackend()
+# backends["ws"] = WSBackend()
 backends["wss"] = WSSBackend()

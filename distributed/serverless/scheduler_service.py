@@ -48,7 +48,7 @@ class ServerlessSchedulerService(Server):
             # "update-data": self.update_data,
             # "report-key": self.report_on_key,
             "client-releases-keys": self.client_releases_keys,
-            # "heartbeat-client": self.client_heartbeat,
+            "heartbeat-client": self.client_heartbeat,
             "close-client": self.remove_client,
             "subscribe-topic": self.subscribe_topic,
             # "unsubscribe-topic": self.unsubscribe_topic,
@@ -98,10 +98,10 @@ class ServerlessSchedulerService(Server):
             try:
                 await self.handle_stream(comm=comm, extra={"client": client})
             finally:
-                print("pipo")
+                self.client_schedulers[client].close()
                 self.remove_client(client=client, stimulus_id=f"remove-client-{time.time()}")
 
-                logger.debug("XXX Finished handling client %s", client)
+                logger.debug("Finished handling client %s", client)
         finally:
             if not comm.closed():
                 self.client_comms[client].send({"op": "stream-closed"})
@@ -115,17 +115,21 @@ class ServerlessSchedulerService(Server):
                 pass
 
     def remove_client(self, client: str, stimulus_id: str | None = None) -> None:
-        logger.info("Remove client: %s", client)
-        self.client_schedulers[client].remove_client(client)
-        del self.client_schedulers[client]
-        del self.clients[client]
-        # Client will call scheduler.close() when it is done, no need to do it here
+        if client not in self.clients:
+            logger.info("Remove client: %s", client)
+            self.client_schedulers[client].remove_client(client)
+            del self.client_schedulers[client]
+            del self.clients[client]
 
     def client_releases_keys(self, keys: set[Key], client: str):
         print("Client %s releases keys: %s" % (client, keys))
 
     async def subscribe_topic(self, topic: str, client: str):
         logger.info("Client %s topic subscription: %s", client, topic)
+
+    def client_heartbeat(self, client: str) -> None:
+        cs = self.clients[client]
+        cs.last_seen = time.time()
 
     # ---------------------
     # Graph handling

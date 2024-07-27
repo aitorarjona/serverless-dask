@@ -11,4 +11,5 @@ RUN pip install --upgrade pip
 RUN pip install -e .
 RUN pip install --no-cache-dir \
     aio-pika==9.4.1 \
-    aioredis==2.0.1
+    aioredis==2.0.1 \
+    websockets==12.0

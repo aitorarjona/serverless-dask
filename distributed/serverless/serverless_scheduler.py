@@ -105,8 +105,8 @@ class ServerlessScheduler(Scheduler):
 
     async def _spawn_worker_knative(self, worker_endpoint, address, name, nthreads, memory_limit):
         logger.debug("Spawn Knative worker %s", name)
-        comm = await connect_with_retry(worker_endpoint, timeout="2s", max_retry=100,
-                                        connection_args={"connect_timeout": 2.0,
+        comm = await connect_with_retry(worker_endpoint, timeout="5s", max_retry=100,
+                                        connection_args={"connect_timeout": 5.0,
                                                          "request_timeout": 0.0})
         logger.debug("Comm to %s worker successful", name)
 

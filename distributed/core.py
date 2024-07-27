@@ -898,7 +898,6 @@ class Server:
             while not self.__stopped:
                 try:
                     msg = await comm.read()
-                    print(msg)
                     # logger.debug("Message from %r: %s", address, msg)
                 except OSError as e:
                     if not is_python_shutting_down():

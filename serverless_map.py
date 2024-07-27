@@ -30,4 +30,3 @@ if __name__ == "__main__":
     print("Exec time: ", t1 - t0)
 
     client.close()
-    time.sleep(30)
