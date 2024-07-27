@@ -5,7 +5,7 @@ import os
 import random
 import textwrap
 import time
-from typing import Any, cast
+from typing import Any
 
 import dask
 from dask.typing import Key
@@ -33,6 +33,7 @@ class ServerlessSchedulerService(Server):
     client_schedulers = {}
     client_comms = {}
     clients = {}
+    client_plugins = {}
     worker_versions = {}
 
     def __init__(self, address):
@@ -40,6 +41,8 @@ class ServerlessSchedulerService(Server):
             "register-client": self.register_client,
             "gather": self.gather,
             "terminate": self.terminate,
+            "register_scheduler_plugin": self.register_scheduler_plugin,
+            "run_function": self.run_function
         }
 
         stream_handlers = {
@@ -98,10 +101,9 @@ class ServerlessSchedulerService(Server):
             try:
                 await self.handle_stream(comm=comm, extra={"client": client})
             finally:
-                # await self.client_schedulers[client].close()
                 self.remove_client(client=client, stimulus_id=f"remove-client-{time.time()}")
-
                 logger.debug("Finished handling client %s", client)
+                # No need to close scheduler here, client will call terminate
         finally:
             if not comm.closed():
                 self.client_comms[client].send({"op": "stream-closed"})
@@ -150,6 +152,14 @@ class ServerlessSchedulerService(Server):
             annotations: dict | None = None,
             stimulus_id: str | None = None,
     ):
+        if client in self.client_schedulers:
+            logger.error("Client %s already has a running scheduler, updating graph directly", client)
+            await self.client_schedulers[client].update_graph(
+                client, graph_header, graph_frames, keys, internal_priority,
+                submitting_task, user_priority, actors, fifo_timeout, code, annotations, stimulus_id
+            )
+            return
+
         start = time.time()
         req_uuid = client.replace("Client-", "")
         scheduler_id = f"Scheduler-{req_uuid}"
@@ -162,7 +172,8 @@ class ServerlessSchedulerService(Server):
             # TODO Setup these parameters based on num of CPUs and worker specs
             nworkers = int(os.environ.get("N_WORKERS", 3))
             nthreads = int(os.environ.get("N_THREADS", 1))
-            memory_limit = int(os.environ.get("MEMORY_LIMIT", 2147483648))  # 2GB
+            # memory_limit = int(os.environ.get("MEMORY_LIMIT", 2147483648))  # 2GB
+            memory_limit = int(os.environ.get("MEMORY_LIMIT", 4294967296))  # 4GB
             logger.info("Going to deploy %d workers with %d threads and %d memory limit",
                         nworkers, nthreads, memory_limit)
 
@@ -181,6 +192,16 @@ class ServerlessSchedulerService(Server):
             self.schedulers[scheduler_id] = scheduler
             self.client_schedulers[client] = scheduler
             await scheduler
+
+            # Add plugins to scheduler
+            if self.client_plugins[client]:
+                for plugin, name, idempotent in self.client_plugins[client]["scheduler"]:
+                    logger.info("Registering scheduler plugin %s for running scheduler %s", name, scheduler_id)
+                    await scheduler.register_scheduler_plugin(plugin, name, idempotent)
+                for plugin, name, idempotent in self.client_plugins[client]["worker"]:
+                    logger.info("Registering worker plugin %s for running scheduler %s", name, scheduler_id)
+                    await scheduler.register_worker_plugin(plugin, name, idempotent)
+                del self.client_plugins[client]
 
             # Materialize DAG
             # We do not call Scheduler.update_graph directly because we want to have the DAG here
@@ -246,7 +267,6 @@ class ServerlessSchedulerService(Server):
 
             # logger.debug("Waiting for scheduler to finish")
             # await scheduler.finished()
-            # logger.info("======================= SCHEDULER END %s =======================", scheduler_id)
         except RuntimeError as e:
             logger.error(str(e))
             err = error_message(e)
@@ -270,12 +290,34 @@ class ServerlessSchedulerService(Server):
 
     async def terminate(self, client, reason=""):
         if client not in self.client_schedulers:
+            logger.error("Client %s not found", client)
             return
-        logger.info("Client %s called terminate", client)
+
+        scheduler_id = self.client_schedulers[client].id
+        logger.info("Client %s called terminate for scheduler %s", client, scheduler_id)
         await self.client_schedulers[client].close(reason=reason)
+        logger.info("======================= SCHEDULER END %s =======================", scheduler_id)
+
+    def register_scheduler_plugin(self, client, plugin, name=None, idempotent=None):
+        if client not in self.clients:
+            raise ValueError(f"Client {client} not found")
+        if client in self.client_schedulers:
+            logger.info("Registering plugin %s for running scheduler %s", name,
+                        self.client_schedulers[client].id)
+            self.client_schedulers[client].register_scheduler_plugin(plugin, name, idempotent)
+        else:
+            if client not in self.client_plugins:
+                self.client_plugins[client] = {"scheduler": [], "worker": []}
+            self.client_plugins[client]["scheduler"].append((plugin, name, idempotent))
+            logger.info("Saved plugin %s for client %s, will register it later...", name, client)
+
+    def run_function(self, client, function, args, kwargs, wait):
+        return self.client_schedulers[client].run_function(
+            comm=None, function=function, args=args, kwargs=kwargs, wait=wait
+        )
 
     # ---------------------
-    # Dispatcher management
+    # Service management
     # ---------------------
 
     async def start_unsafe(self):

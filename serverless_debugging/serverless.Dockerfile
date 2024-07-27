@@ -5,8 +5,8 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-COPY distributed/ /app/distributed/
-COPY pyproject.toml /app/
+COPY ../distributed /app/distributed/
+COPY ../pyproject.toml /app/
 RUN pip install --upgrade pip
 RUN pip install -e .
 RUN pip install --no-cache-dir \

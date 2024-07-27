@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import inspect
 import logging
 import time
 from typing import TYPE_CHECKING
@@ -100,6 +101,15 @@ class ServerlessScheduler(Scheduler):
             #     self.bulk_schedule_unrunnable_after_adding_worker(ws), stimulus_id
             # )
 
+            awaitables = []
+            for plugin in list(self.plugins.values()):
+                try:
+                    result = plugin.add_worker(scheduler=self, worker=address)
+                    if result is not None and inspect.isawaitable(result):
+                        raise Exception("Plugin add_worker should not return awaitable")
+                except Exception as e:
+                    logger.exception(e)
+
         self.total_nthreads_history.append((time.time(), self.total_nthreads))
         self.stimulus_queue_slots_maybe_opened(stimulus_id=stimulus_id)
 
@@ -126,6 +136,3 @@ class ServerlessScheduler(Scheduler):
 
         # This will keep running until the worker is removed
         await self.handle_worker(comm, address)
-
-    async def update_worker_contact_address(self, worker):
-        pass
