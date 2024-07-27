@@ -4,16 +4,17 @@ import asyncio
 import struct
 from functools import partial
 
-from websockets.server import serve
+import tornado.ioloop
 from websockets.client import connect
 from websockets.exceptions import ConnectionClosedOK
+from websockets.server import serve
 
 from distributed.comm import get_address_host_port, unparse_host_port
 from distributed.comm.core import (
     BaseListener,
     Comm,
     Connector, CommClosedError, )
-from distributed.comm.registry import Backend, backends
+from distributed.comm.registry import backends
 from distributed.comm.tcp import BaseTCPBackend
 from distributed.comm.utils import from_frames, to_frames
 from distributed.comm.ws import BIG_BYTES_SHARD_SIZE
@@ -35,6 +36,7 @@ class WebSocketsV2(Comm):
         self.websocket = websocket
         self.deserialize = deserialize
         self.allow_offload = allow_offload
+        self.is_closed = False
         Comm.__init__(self)
 
     async def read(self, deserializers=None):
@@ -43,7 +45,10 @@ class WebSocketsV2(Comm):
         except ConnectionClosedOK:
             raise CommClosedError()
         n_frames = struct.unpack("Q", n_frames)[0]
-        frames = [(await self.websocket.recv()) for _ in range(n_frames)]
+        try:
+            frames = [(await self.websocket.recv()) for _ in range(n_frames)]
+        except ConnectionClosedOK:
+            raise CommClosedError()
         return await from_frames(
             frames,
             deserialize=self.deserialize,
@@ -66,11 +71,18 @@ class WebSocketsV2(Comm):
         )
         n = struct.pack("Q", len(frames))
         nbytes_frames = 0
-        await self.websocket.send(n)
+        try:
+            await self.websocket.send(n)
+        except ConnectionClosedOK:
+            return 0
+            # raise CommClosedError()
         for frame in frames:
             if type(frame) is not bytes:
                 frame = bytes(frame)
-            await self.websocket.send(frame)
+            try:
+                await self.websocket.send(frame)
+            except ConnectionClosedOK:
+                return nbytes_frames
             nbytes_frames += len(frame)
 
         return nbytes_frames
@@ -80,7 +92,7 @@ class WebSocketsV2(Comm):
         await self.websocket.wait_closed()
 
     def abort(self):
-        raise NotImplementedError()
+        tornado.ioloop.IOLoop.current().add_callback(self.websocket.close)
 
     def closed(self):
         return self.websocket.closed
@@ -133,7 +145,8 @@ class WebSocketV2Listener(BaseListener):
 
 class WebSocketV2Connector(Connector):
     async def connect(self, address, deserialize=True, **connection_args):
-        websocket = await connect(f"ws://{address}", open_timeout=None, close_timeout=None, max_size=None, max_queue=None)
+        websocket = await connect(f"ws://{address}", open_timeout=None, close_timeout=None, max_size=None,
+                                  max_queue=None)
         return WebSocketsV2(websocket, deserialize=deserialize, allow_offload=True)
 
 

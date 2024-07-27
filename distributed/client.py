@@ -1723,7 +1723,7 @@ class Client(SyncMethodMixin):
                 with suppress(AttributeError):
                     await self.cluster.close()
 
-            # await self.rpc.close()
+            await self.rpc.close()
 
             self.status = "closed"
 

@@ -39,7 +39,7 @@ class ServerlessSchedulerService(Server):
         handlers = {
             "register-client": self.register_client,
             "gather": self.gather,
-            "get_task_stream": self.get_task_stream,
+            "terminate": self.terminate,
         }
 
         stream_handlers = {
@@ -98,7 +98,7 @@ class ServerlessSchedulerService(Server):
             try:
                 await self.handle_stream(comm=comm, extra={"client": client})
             finally:
-                self.client_schedulers[client].close()
+                # await self.client_schedulers[client].close()
                 self.remove_client(client=client, stimulus_id=f"remove-client-{time.time()}")
 
                 logger.debug("Finished handling client %s", client)
@@ -122,7 +122,7 @@ class ServerlessSchedulerService(Server):
             del self.clients[client]
 
     def client_releases_keys(self, keys: set[Key], client: str):
-        print("Client %s releases keys: %s" % (client, keys))
+        self.client_schedulers[client].client_releases_keys(keys, client)
 
     async def subscribe_topic(self, topic: str, client: str):
         logger.info("Client %s topic subscription: %s", client, topic)
@@ -132,7 +132,7 @@ class ServerlessSchedulerService(Server):
         cs.last_seen = time.time()
 
     # ---------------------
-    # Graph handling
+    # Handling schedulers
     # ---------------------
 
     async def update_graph(
@@ -268,24 +268,11 @@ class ServerlessSchedulerService(Server):
     async def gather(self, keys, client, serializers=None):
         return await self.client_schedulers[client].gather(keys, serializers=serializers)
 
-    def get_task_stream(
-            self,
-            start: str | float | None = None,
-            stop: str | float | None = None,
-            count: int | None = None,
-            client: str | None = None,
-    ) -> list:
-        from distributed.diagnostics.task_stream import TaskStreamPlugin
-
-        if client not in self.schedulers:
-            self.startup_plugins[client] = [TaskStreamPlugin]
-            return []
-        else:
-            scheduler = self.schedulers[client]
-            if TaskStreamPlugin.name not in scheduler.plugins:
-                scheduler.add_plugin(TaskStreamPlugin(scheduler))
-            plugin = cast(TaskStreamPlugin, scheduler.plugins[TaskStreamPlugin.name])
-            return plugin.collect(start=start, stop=stop, count=count)
+    async def terminate(self, client, reason=""):
+        if client not in self.client_schedulers:
+            return
+        logger.info("Client %s called terminate", client)
+        await self.client_schedulers[client].close(reason=reason)
 
     # ---------------------
     # Dispatcher management

@@ -4130,7 +4130,6 @@ class Scheduler(SchedulerState, ServerNode):
         --------
         Scheduler.cleanup
         """
-        print("Closing scheduler")
         if fast is not None or close_workers is not None:
             warnings.warn(
                 "The 'fast' and 'close_workers' parameters in Scheduler.close have no "

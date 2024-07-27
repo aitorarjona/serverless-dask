@@ -74,7 +74,8 @@ class ServerlessWorkerService(ServerNode):
         worker.status = Status.running
 
         await worker.handle_scheduler(comm)
-        worker.close()
+        worker.batched_stream.close()
+        await worker.close()
         logger.info("======================= WORKER END worker %s %s =======================", name, address)
 
     async def start_unsafe(self):
