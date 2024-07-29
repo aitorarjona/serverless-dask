@@ -43,9 +43,9 @@ class ServerlessWorkerService(ServerNode):
         logger.debug("Get versions from %s", comm.peer_address)
         await comm.write(self.versions)
 
-    async def start_worker(self, comm: Comm, address: str, name: str, nthreads: int, memory_limit: str,
+    async def start_worker(self, comm: Comm, name: str, nthreads: int, memory_limit: str,
                            scheduler_address: str):
-        logger.info("======================= WORKER START worker %s %s =======================", name, address)
+        logger.info("======================= WORKER START worker %s =======================", name)
         scheduler_host, scheduler_port = parse_host_port(scheduler_address)
         logger.info("Will connect to scheduler at host=%s port=%d", scheduler_host, scheduler_port)
 
@@ -66,8 +66,6 @@ class ServerlessWorkerService(ServerNode):
         )
         await worker
 
-        worker.contact_address = address
-
         await comm.write({"name": name, "contact_address": worker.address})
 
         worker.batched_stream.start(comm)
@@ -76,7 +74,7 @@ class ServerlessWorkerService(ServerNode):
         await worker.handle_scheduler(comm)
         worker.batched_stream.close()
         await worker.close()
-        logger.info("======================= WORKER END worker %s %s =======================", name, address)
+        logger.info("======================= WORKER END worker %s =======================", name)
 
     async def start_unsafe(self):
         await self.listen(

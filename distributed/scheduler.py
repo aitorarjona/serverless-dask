@@ -414,9 +414,6 @@ class WorkerState:
     #: (such as ``"tcp://127.0.0.1:8891"``) or an alias (such as ``"alice"``).
     address: str
 
-    #: Address that the worker is listening on (such as ``"tcp://127.0.0.1:8891"``)
-    contact_address: str
-
     pid: int
     name: Hashable
 
@@ -3442,7 +3439,7 @@ class SchedulerState:
             "duration": duration,
             "stimulus_id": f"compute-task-{time()}",
             "who_has": {
-                dts.key: [ws.contact_address for ws in dts.who_has or ()]
+                dts.key: [ws.address for ws in dts.who_has or ()]
                 for dts in ts.dependencies
             },
             "nbytes": {dts.key: dts.nbytes for dts in ts.dependencies},
@@ -5900,7 +5897,7 @@ class Scheduler(SchedulerState, ServerNode):
         free_keys = []
         for key in keys:
             if key in self.tasks:
-                who_has[key] = [ws.contact_address for ws in self.tasks[key].who_has or ()]
+                who_has[key] = [ws.address for ws in self.tasks[key].who_has or ()]
             else:
                 free_keys.append(key)
 
@@ -7621,14 +7618,14 @@ class Scheduler(SchedulerState, ServerNode):
     def get_who_has(self, keys: Iterable[Key] | None = None) -> dict[Key, list[str]]:
         if keys is not None:
             return {
-                key: [ws.contact_address for ws in self.tasks[key].who_has or ()]
+                key: [ws.address for ws in self.tasks[key].who_has or ()]
                 if key in self.tasks
                 else []
                 for key in keys
             }
         else:
             return {
-                key: [ws.contact_address for ws in ts.who_has or ()]
+                key: [ws.address for ws in ts.who_has or ()]
                 for key, ts in self.tasks.items()
             }
 

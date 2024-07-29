@@ -177,12 +177,12 @@ class ServerlessWorker(Worker):
         return self
 
     async def heartbeat(self) -> None:
-        logger.debug("Heartbeat: %s (%s)", self.contact_address, self.address)
+        logger.debug("Heartbeat: %s", self.address)
         try:
             start = time()
             response = await retry_operation(
                 self.scheduler.heartbeat_worker,
-                address=self.contact_address,
+                address=self.address,
                 resolve_address=False,
                 now=start,
                 metrics=await self.get_metrics(),
