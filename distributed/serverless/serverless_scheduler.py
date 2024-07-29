@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from distributed import Scheduler, Status
 from distributed.batched import BatchedSend
 from distributed.comm import Comm
-from distributed.comm.core import connect_with_retry
+from distributed.comm.core import connect
 from distributed.counter import Counter
 from distributed.scheduler import ClientState, WorkerState
 
@@ -46,6 +46,11 @@ class ServerlessScheduler(Scheduler):
         self.clients[client.client_key] = client
         self.client_comms[client] = client_comm
         self.id = client.client_key.replace("Client", "Scheduler")
+        self.worker_contact_addresses = {}
+
+        self.handlers.update({
+            "get_worker_contact_address": self.get_worker_contact_address,
+        })
 
     def bootstrap_workers(self, worker_endpoint, n_workers, nthreads, memory_limit, versions):
         start = time.time()
@@ -115,9 +120,9 @@ class ServerlessScheduler(Scheduler):
 
     async def _spawn_worker_knative(self, worker_endpoint, address, name, nthreads, memory_limit):
         logger.debug("Spawn Knative worker %s", name)
-        comm = await connect_with_retry(worker_endpoint, timeout="5s", max_retry=100,
-                                        connection_args={"connect_timeout": 5.0,
-                                                         "request_timeout": 0.0})
+        # comm = await connect_with_retry(worker_endpoint, timeout="60s", max_retry=100)
+        comm = await connect(worker_endpoint, timeout="3600s", connection_args={"connect_timeout": 0.0,
+                                                                                "request_timeout": 0.0})
         logger.debug("Comm to %s worker successful", name)
 
         await comm.write({"op": "start-worker",
@@ -130,9 +135,15 @@ class ServerlessScheduler(Scheduler):
         res = await comm.read()
 
         self.workers[address].contact_address = res["contact_address"]
+        # self.worker_contact_addresses[res["contact_address"]] = self.workers[address]
 
         batched_send = self.stream_comms[address]
         batched_send.start(comm)
 
         # This will keep running until the worker is removed
         await self.handle_worker(comm, address)
+
+    def get_worker_contact_address(self, worker: str):
+        contact_address = self.workers[worker].contact_address
+        logger.debug("Contact address for %s is %s", worker, contact_address)
+        return contact_address

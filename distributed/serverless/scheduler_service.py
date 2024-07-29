@@ -194,7 +194,7 @@ class ServerlessSchedulerService(Server):
             await scheduler
 
             # Add plugins to scheduler
-            if self.client_plugins[client]:
+            if client in self.client_plugins:
                 for plugin, name, idempotent in self.client_plugins[client]["scheduler"]:
                     logger.info("Registering scheduler plugin %s for running scheduler %s", name, scheduler_id)
                     await scheduler.register_scheduler_plugin(plugin, name, idempotent)

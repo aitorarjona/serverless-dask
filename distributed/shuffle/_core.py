@@ -201,6 +201,7 @@ class ShuffleRun(Generic[_T_partition_id, _T_partition_type]):
         self, address: str, shards: list[tuple[_T_partition_id, Any]] | bytes
     ) -> None:
         self.raise_if_closed()
+        print("ShuffleRun._send to address:", address)
         return await self.rpc(address).shuffle_receive(
             data=to_serialize(shards),
             shuffle_id=self.id,
@@ -210,6 +211,7 @@ class ShuffleRun(Generic[_T_partition_id, _T_partition_type]):
     async def send(
         self, address: str, shards: list[tuple[_T_partition_id, Any]]
     ) -> None:
+        print("ShuffleRun.send to address:", address)
         if _mean_shard_size(shards) < 65536:
             # Don't send buffers individually over the tcp comms.
             # Instead, merge everything into an opaque bytes blob, send it all at once,
@@ -341,6 +343,7 @@ class ShuffleRun(Generic[_T_partition_id, _T_partition_type]):
                 context_meter.meter("p2p-shard-partition-cpu", func=thread_time),
             ):
                 shards = self._shard_partition(data, partition_id)
+                print("shards", list(shards.keys()))
             sync(self._loop, self._write_to_comm, shards)
         return self.run_id
 
@@ -383,7 +386,7 @@ class ShuffleRun(Generic[_T_partition_id, _T_partition_type]):
 
 def get_worker_plugin() -> ShuffleWorkerPlugin:
     from distributed import get_worker
-
+    print("get_worker_plugin", get_worker)
     try:
         worker = get_worker()
     except ValueError as e:
@@ -392,7 +395,10 @@ def get_worker_plugin() -> ShuffleWorkerPlugin:
             "please confirm that you've created a distributed Client and are submitting this computation through it."
         ) from e
     try:
-        return worker.plugins["shuffle"]  # type: ignore
+        print("worker.plugins", worker.plugins)
+        plugin = worker.plugins["shuffle"]  # type: ignore
+        print("plugin", plugin)
+        return plugin
     except KeyError as e:
         raise RuntimeError(
             f"The worker {worker.address} does not have a P2P shuffle plugin."
@@ -450,7 +456,7 @@ class ShuffleSpec(abc.ABC, Generic[_T_partition_id]):
     ) -> SchedulerShuffleState:
         return SchedulerShuffleState(
             run_spec=ShuffleRunSpec(spec=self, worker_for=worker_for, span_id=span_id),
-            participating_workers=set(worker_for.values()),
+            participating_workers=set(worker_for.values()), participating_workers_ids=set(),
         )
 
     def validate_data(self, data: Any) -> None:
@@ -471,6 +477,7 @@ class ShuffleSpec(abc.ABC, Generic[_T_partition_id]):
 class SchedulerShuffleState(Generic[_T_partition_id]):
     run_spec: ShuffleRunSpec
     participating_workers: set[str]
+    participating_workers_ids: set[str]
     _archived_by: str | None = field(default=None, init=False)
 
     @property

@@ -42,19 +42,19 @@ if __name__ == "__main__":
     task_story = {}
 
     t0 = time.time()
-    client = Client("ws://127.0.0.1:8786", connection_limit=1)
+    client = Client("ws://serverless-dask-scheduler-service.default.svc.cluster.local:8786", connection_limit=1)
     t1 = time.time()
     print(f"Time to create cluster: {t1 - t0:.2f} s")
     timestamps["cluster_creation"] = {"t0": t0, "t1": t1}
 
     s3 = s3fs.S3FileSystem(
-        key="minioadmin",
-        secret="minioadmin",
-        endpoint_url="http://127.0.0.1:9000",
+        key="lab144",
+        secret="astl1a4b4",
+        endpoint_url="http://192.168.5.24:9000",
     )
 
     # Check that s3 is working
-    dataset_path = "s3://tpch/scale-1/"
+    dataset_path = "s3://dask-emartinez/tpch-data/scale-100/"
     s3.ls(dataset_path)
 
     plugin = TaskWorkerMonitorPlugin()
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
 
     query = query_1
-    scale = 1
+    scale = 100
 
     t_init = time.time()
     print(f"Evaluating query {query.__name__} {dataset_path} {scale}...")

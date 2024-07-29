@@ -2195,7 +2195,7 @@ class SchedulerState:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
 
-        logger.debug("Assigning rootish task %s to %s (queuing disabled)", ts.key, ws.name)
+        logger.debug("Assigning rootish task %s to %s (queuing disabled)", ts.key, ws.address)
         return ws
 
     def decide_worker_rootish_queuing_enabled(self) -> WorkerState | None:
@@ -2248,7 +2248,7 @@ class SchedulerState:
             )
             assert ws in self.running, (ws, self.running)
 
-        logger.debug("Assigning rootish task to %s (queuing enabled)", ws.name)
+        logger.debug("Assigning rootish task to %s (queuing enabled)", ws.address)
         return ws
 
     def decide_worker_non_rootish(self, ts: TaskState) -> WorkerState | None:
@@ -2314,8 +2314,11 @@ class SchedulerState:
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
+        if ws is None:
+            from pprint import pprint
+            pprint(ts)
 
-        logger.debug("Assigning %s to %s", ts.key, ws.name)
+        logger.debug("Assigning %s to %s", ts.key, ws.address)
         return ws
 
     def _transition_waiting_processing(self, key: Key, stimulus_id: str) -> RecsMsgs:
@@ -6457,7 +6460,7 @@ class Scheduler(SchedulerState, ServerNode):
         if nanny:
             addresses = [n for w in workers if (n := self.workers[w].nanny) is not None]
         else:
-            addresses = workers
+            addresses = [self.workers[w].contact_address for w in workers]
 
         ERROR = object()
 

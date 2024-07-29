@@ -76,6 +76,7 @@ def shuffle_transfer(
     drop_column: bool,
 ) -> int:
     with handle_transfer_errors(id):
+        print("shuffle_transfer")
         return get_worker_plugin().add_partition(
             input,
             input_partition,
@@ -458,6 +459,9 @@ class DataFrameShuffleRun(ShuffleRun[int, "pd.DataFrame"]):
         loop: IOLoop,
     ):
         import pandas as pd
+
+        print("Created DataFrameShuffleRun, local_address:", local_address)
+        print("Worker for: ", worker_for)
 
         super().__init__(
             id=id,

@@ -7,6 +7,7 @@ ENV PYTHONUNBUFFERED 1
 
 COPY ../distributed /app/distributed/
 COPY ../pyproject.toml /app/
+COPY ../serverless_debugging/ /app/serverless_debugging/
 RUN pip install --upgrade pip
 RUN pip install -e .
 RUN pip install --no-cache-dir \

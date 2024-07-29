@@ -188,13 +188,13 @@ class _ShuffleRunManager:
         if spec is None:
             result = await self._plugin.worker.scheduler.shuffle_get(
                 id=shuffle_id,
-                worker=self._plugin.worker.address,
+                worker=self._plugin.worker.contact_address,
             )
         else:
             result = await self._plugin.worker.scheduler.shuffle_get_or_create(
                 spec=ToPickle(spec),
                 key=key,
-                worker=self._plugin.worker.address,
+                worker=self._plugin.worker.contact_address,
             )
         if isinstance(result, ToPickle):
             result = result.data
@@ -270,6 +270,7 @@ class ShuffleWorkerPlugin(WorkerPlugin):
     closed: bool
 
     def setup(self, worker: Worker) -> None:
+        print("ShuffleWorkerPlugin.setup")
         # Attach to worker
         worker.handlers["shuffle_receive"] = self.shuffle_receive
         worker.handlers["shuffle_inputs_done"] = self.shuffle_inputs_done
@@ -292,7 +293,7 @@ class ShuffleWorkerPlugin(WorkerPlugin):
         return f"ShuffleWorkerPlugin on {self.worker.address}"
 
     def __repr__(self) -> str:
-        return f"<ShuffleWorkerPlugin, worker={self.worker.address_safe!r}, closed={self.closed}>"
+        return f"<ShuffleWorkerPlugin, worker={self.worker.address!r}, closed={self.closed}>"
 
     # Handlers
     ##########
@@ -341,8 +342,10 @@ class ShuffleWorkerPlugin(WorkerPlugin):
         spec: ShuffleSpec,
         **kwargs: Any,
     ) -> int:
+        print("add_partition")
         spec.validate_data(data)
         shuffle_run = self.get_or_create_shuffle(spec)
+        print("Got shuffle: ", shuffle_run)
         return shuffle_run.add_partition(
             data=data,
             partition_id=partition_id,

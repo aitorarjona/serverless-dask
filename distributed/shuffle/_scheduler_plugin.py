@@ -53,6 +53,7 @@ class ShuffleSchedulerPlugin(SchedulerPlugin):
     _shift_counter: itertools.count[int]
 
     def __init__(self, scheduler: Scheduler):
+        print("ShuffleSchedulerPlugin.__init__")
         self.scheduler = scheduler
         self.scheduler.handlers.update(
             {
@@ -201,10 +202,16 @@ class ShuffleSchedulerPlugin(SchedulerPlugin):
         shuffle_id = spec.id
         barrier = self.scheduler.tasks[barrier_key(shuffle_id)]
 
+        print("barrier", barrier)
         if barrier.worker_restrictions:
+            print("barrier.worker_restrictions", barrier.worker_restrictions)
             workers = list(barrier.worker_restrictions)
         else:
-            workers = list(self.scheduler.workers)
+            print("no barrier restrictions")
+            # workers = [w.contact_address for w in self.scheduler.workers.values()]
+            workers = [w.address for w in self.scheduler.workers.values()]
+
+        print("workers", workers)
 
         # Ensure homogeneous cluster utilization when there are multiple small,
         # independent shuffles going on at the same time, e.g. due to partial rechunking

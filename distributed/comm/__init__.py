@@ -17,7 +17,7 @@ from distributed.comm.utils import get_tcp_server_address, get_tcp_server_addres
 
 
 def _register_transports():
-    from distributed.comm import inproc, tcp, ws, rabbitmq, ws_v2
+    from distributed.comm import inproc, tcp, ws, rabbitmq, ws
 
     backends["tcp"] = tcp.TCPBackend()
     backends["tls"] = tcp.TLSBackend()

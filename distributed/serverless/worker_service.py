@@ -8,9 +8,15 @@ from distributed.comm import Comm
 from distributed.comm.addressing import addresses_from_user_args, parse_host_port
 from distributed.node import ServerNode
 from distributed.serverless.serverless_worker import ServerlessWorker
+from distributed.shuffle import ShuffleWorkerPlugin
 from distributed.versions import get_versions
 
 logger = logging.getLogger(__name__)
+
+
+WORKER_PLUGINS = {
+    "shuffle": ShuffleWorkerPlugin,
+}
 
 
 class ServerlessWorkerService(ServerNode):
@@ -64,6 +70,8 @@ class ServerlessWorkerService(ServerNode):
             memory_limit=memory_limit,
             connection_limit=1,
         )
+        for plugin_name, plugin_cls in WORKER_PLUGINS.items():
+            await worker.plugin_add(plugin_cls(), name=plugin_name)
         await worker
 
         worker.contact_address = address
