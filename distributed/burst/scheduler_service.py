@@ -18,7 +18,7 @@ from distributed.comm import Comm
 from distributed.core import error_message, Server
 from distributed.protocol import deserialize
 from distributed.scheduler import ClientState, _materialize_graph
-from distributed.serverless.serverless_scheduler import ServerlessScheduler
+from distributed.burst.scheduler import K8sReplicasetBurstScheduler
 from distributed.utils import is_python_shutting_down, offload
 from distributed.versions import get_versions
 
@@ -28,7 +28,7 @@ DEFAULT_PORT = 8786
 WORKER_SERVICE_ENDPOINT = os.environ.get("WORKER_SERVICE_ENDPOINT", "ws://127.0.0.1:8080")
 
 
-class ServerlessSchedulerService(Server):
+class BurstableSchedulerService(Server):
     schedulers = {}
     client_schedulers = {}
     client_comms = {}
@@ -163,7 +163,7 @@ class ServerlessSchedulerService(Server):
         start = time.time()
         req_uuid = client.replace("Client-", "")
         scheduler_id = f"Scheduler-{req_uuid}"
-        logger.info("======================= SCHEDULER START %s =======================", scheduler_id)
+        logger.info("======================= SCHEDULER %s START =======================", scheduler_id)
         # logger.info("Bootstrap scheduler for %s", scheduler_id)
         cs = self.clients[client]
         try:
@@ -179,14 +179,13 @@ class ServerlessSchedulerService(Server):
 
             # Bootstrap scheduler for this DAG run
             port = random.randint(49152, 65535)
-            scheduler = ServerlessScheduler(
+            scheduler = K8sReplicasetBurstScheduler(
                 client=cs,
                 client_comm=self.client_comms[client],
                 host="0.0.0.0",
                 port=port,
                 protocol="tcp",
                 dashboard=False,
-
             )
             scheduler.client_comms[client] = self.client_comms[client]
             self.schedulers[scheduler_id] = scheduler
@@ -242,8 +241,8 @@ class ServerlessSchedulerService(Server):
                 )
 
             # Add WorkerState to scheduler
-            await scheduler.bootstrap_workers(WORKER_SERVICE_ENDPOINT, nworkers,
-                                              nthreads, memory_limit, self.scheduler_versions)
+            # We assume the versions of the scheduler and worker match
+            await scheduler.bootstrap_workers(nworkers, nthreads, memory_limit, self.scheduler_versions)
 
             # Enqueue tasks to scheduler
             scheduler._create_taskstate_from_graph(

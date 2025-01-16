@@ -20,7 +20,7 @@ from distributed.worker_memory import WorkerDataParameter
 logger = logging.getLogger(__name__)
 
 
-class ServerlessWorker(Worker):
+class BurstableWorker(Worker):
     def __init__(self,
                  scheduler_ip: str | None = None,
                  scheduler_port: int | None = None, *,

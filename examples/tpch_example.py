@@ -6,7 +6,7 @@ from pprint import pprint
 import s3fs
 from dask.distributed import Client
 
-from dask_queries import *
+from tpch_queries import *
 from distributed import SchedulerPlugin
 
 

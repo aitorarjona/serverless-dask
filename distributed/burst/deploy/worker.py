@@ -7,19 +7,21 @@ import os
 from distributed._signals import wait_for_signals
 from distributed.compatibility import asyncio_run
 from distributed.config import get_loop_factory
-from distributed.serverless.worker_service import ServerlessWorkerService
+from distributed.burst.worker_service import BurstableWorkerService
 
 logger = logging.getLogger(__name__)
 
-PORT = os.environ.get("PORT", "8080")
+PROTOCOL = os.environ.get("PROTOCOL", "tcp")
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = os.environ.get("PORT", "8888")
 
 
 async def run():
     logger.info("-" * 47)
-    worker_service = ServerlessWorkerService(
-        host="127.0.0.1",
+    worker_service = BurstableWorkerService(
+        host=HOST,
         port=PORT,
-        protocol="ws"
+        protocol=PROTOCOL
     )
     logger.info("-" * 47)
 
@@ -69,7 +71,7 @@ if __name__ == "__main__":
 # import tornado.web
 #
 # from distributed.versions import get_versions
-# from distributed.serverless.lazy_worker import LazyWorker
+# from distributed.burst.lazy_worker import LazyWorker
 #
 # logger = logging.getLogger(__name__)
 #

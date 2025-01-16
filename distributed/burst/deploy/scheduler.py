@@ -7,16 +7,16 @@ import os
 from distributed._signals import wait_for_signals
 from distributed.compatibility import asyncio_run
 from distributed.config import get_loop_factory
-from distributed.serverless.scheduler_service import ServerlessSchedulerService
+from distributed.burst.scheduler_service import BurstableSchedulerService
 
 logger = logging.getLogger(__name__)
 
-SCHEDULER_SERVICE_ADDR = os.environ.get("SCHEDULER_SERVICE_ADDR", "ws://127.0.0.1:8786")
+SCHEDULER_SERVICE_ADDR = os.environ.get("SCHEDULER_SERVICE_ADDR", "tcp://0.0.0.0:8786")
 
 
 async def run():
     logger.info("-" * 47)
-    ephemeral_scheduler = ServerlessSchedulerService(SCHEDULER_SERVICE_ADDR)
+    ephemeral_scheduler = BurstableSchedulerService(SCHEDULER_SERVICE_ADDR)
     logger.info("-" * 47)
 
     async def wait_for_dispatcher_to_finish():
