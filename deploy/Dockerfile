@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12.3-slim
 
 WORKDIR /rapidask
 
@@ -14,11 +14,13 @@ COPY ../pyproject.toml /rapidask/
 # COPY ../serverless_debugging/ /rapidask/examples/
 RUN pip install --upgrade pip
 RUN pip install -e .
+
 RUN pip install --no-cache-dir \
-#    aio-pika==9.4.1 \
-#    aioredis==2.0.1 \
+#     aio-pika==9.4.1 \
+#     aioredis==2.0.1 \
 #     websockets==12.0 \
 #     s3fs==2024.6.1 \
+    kubernetes_asyncio==32.0.0 \
     dask==2024.4.2
 #     dask[array]==2024.4.2 \
 #     dask[dataframe]==2024.4.2

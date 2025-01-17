@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rapidask-scheduler-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rapidask-scheduler
+  template:
+    metadata:
+      labels:
+        app: rapidask-scheduler
+    spec:
+      serviceAccountName: rapidask
+      containers:
+        - name: rapidask-scheduler-container
+          image: "docker.io/aitorarjona/rapidask-k8s:dev"
+          imagePullPolicy: "Always"
+          ports:
+            - containerPort: 8786
+          command: ["python"]
+          args: ["-m", "distributed.burst.deploy.scheduler"]

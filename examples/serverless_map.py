@@ -18,7 +18,7 @@ def sleepy(i):
 
 if __name__ == "__main__":
     # create dask client
-    client = Client("tcp://127.0.0.1:8786", connection_limit=1)
+    client = Client("tcp://192.168.59.104:30000", connection_limit=1)
 
     t0 = time.perf_counter()
     b = db.from_sequence([(i,) for i in range(MAP_SIZE)], npartitions=MAP_SIZE).map(sleepy)

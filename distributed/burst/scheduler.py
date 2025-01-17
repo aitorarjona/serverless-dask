@@ -51,7 +51,8 @@ def _get_initial_heartbeat_metrics(bandwidth=100000000,
 
 
 async def _deploy_k8s_replicaset(cluster_name, replicas, cpu, memory):
-    await config.load_kube_config()
+    # await config.load_kube_config()
+    config.load_incluster_config()
 
     metadata = client.V1ObjectMeta(name=cluster_name, labels={"app": cluster_name})
 
@@ -121,7 +122,7 @@ async def _deploy_k8s_replicaset(cluster_name, replicas, cpu, memory):
                 w.stop()
 
     await w.close()
-    await core_api.close()
+    # await core_api.close()
 
 
 class K8sReplicasetBurstScheduler(Scheduler):
